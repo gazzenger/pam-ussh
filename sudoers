@@ -1,0 +1,4 @@
+# Important to add this line to the sudoers file
+# Otherwise the sudo group is enforced
+
+ALL ALL=(ALL:ALL) ALL
