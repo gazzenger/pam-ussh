@@ -1,4 +1,5 @@
-
+# Updates added from https://help.duo.com/s/article/2231?language=en_US
+# A good explanation of this can be found http://www.rjsystems.nl/en/2100-pam-debian.php
 
 #
 # /etc/pam.d/common-auth - authentication settings common to all services
