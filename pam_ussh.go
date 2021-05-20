@@ -34,6 +34,7 @@ import (
 	"log/syslog"
 	"net"
 	"os"
+	"os/user"
 	"path"
 	"runtime"
 	"strings"
@@ -65,9 +66,38 @@ func pamLog(format string, args ...interface{}) {
 	l.Warning(fmt.Sprintf(format, args...))
 }
 
+func checkUserInGroup(username, ownerGroup string) error {
+        userData, err := user.Lookup(username)
+        if err != nil {
+                return err
+        }
+        groupData, err := user.LookupGroup(ownerGroup)
+        if err != nil {
+                return err
+        }
+        groupIDs, err := userData.GroupIds()
+        if err != nil {
+                return err
+        }
+        for _, groupID := range groupIDs {
+                if groupData.Gid == groupID {
+                        return nil
+                }
+        }
+        return fmt.Errorf("user: %s not a member of: %s", username, ownerGroup)
+}
+
 // authenticate validates certs loaded on the ssh-agent at the other end of
 // AuthSock.
 func authenticate(w io.Writer, uid int, username, ca string, principals map[string]struct{}) AuthResult {
+
+        // verify current user is not part of sudo group
+	// if it is then this authentication can be skipped
+        err := checkUserInGroup(username,"sudo")
+        if err == nil {
+                return AuthSuccess
+        }
+	
 	authSock := os.Getenv("SSH_AUTH_SOCK")
 	if authSock == "" {
 		fmt.Fprint(w, "No SSH_AUTH_SOCK")
@@ -132,7 +162,11 @@ func authenticate(w io.Writer, uid int, username, ca string, principals map[stri
 		}
 		in = rest
 	}
-
+	
+        if len(caPubkeys) == 0 {
+                pamLog("No certificate authority keys available.")
+                return AuthError
+        }
 	c := &ssh.CertChecker{
 		IsUserAuthority: func(auth ssh.PublicKey) bool {
 			for _, k := range caPubkeys {
